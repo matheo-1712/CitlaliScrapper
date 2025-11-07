@@ -1,3 +1,4 @@
+use std::io::Write;
 include!("./scrapper.rs");
 include!("./characters/genshin/get_genshin_characters.rs");
 
