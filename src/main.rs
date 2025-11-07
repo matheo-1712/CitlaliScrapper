@@ -1,5 +1,4 @@
 use std::env;
-use std::io::Write;
 use dotenv::dotenv;
 
 include!("./characters/genshin/get_genshin_characters.rs");
@@ -12,12 +11,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Charge le .env
     dotenv().ok();
-
-    // Variable pour le scrapping des infographics
-    let mut gazette_de_teyvat: ScrappingInfos = ScrappingInfos {
-        alias: "gazette_de_teyvat".to_string(),
-        url: "https://keqingmains.com/".to_string()
-    };
 
     main_keqing_mains().await;
 

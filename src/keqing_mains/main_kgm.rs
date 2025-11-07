@@ -4,13 +4,15 @@ async fn main_keqing_mains() {
     let kgm_genshin: ScrappingInfos = {
         ScrappingInfos {
             alias: "Keqing Mains".to_string(),
-            url: "https://keqingmains.com/".to_string()
+            url: "https://keqingmains.com/".to_string(),
+            jeu: "genshin".to_string()
         }
     };
     let kgm_hsr: ScrappingInfos ={
         ScrappingInfos {
             alias: "Keqing Mains HSR".to_string(),
-            url: "https://hsr.keqingmains.com/".to_string()
+            url: "https://hsr.keqingmains.com/".to_string(),
+            jeu: "hsr".to_string()
         }
     };
 

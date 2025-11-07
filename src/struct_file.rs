@@ -4,6 +4,7 @@ use serde::Serialize;
 pub struct ScrappingInfos {
     alias: String,
     url: String,
+    jeu: String,   
 }
 
 pub struct Infographic {

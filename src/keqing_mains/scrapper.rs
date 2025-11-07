@@ -51,6 +51,7 @@ pub async fn scrape_infographics_kqm(info: ScrappingInfos) -> Result<(), Box<dyn
     let start = Instant::now();
     let urls = scrap_redirect_urls(info.url.as_str());
     let alias: &str = info.alias.as_str();
+    let jeu: &str = info.jeu.as_str();
 
     let client = Client::builder()
         .user_agent("Mozilla/5.0 (compatible; Citlali/3.0; +https://citlapi.antredesloutres.fr/)")
@@ -84,7 +85,7 @@ pub async fn scrape_infographics_kqm(info: ScrappingInfos) -> Result<(), Box<dyn
 
             if let Some(meta_refresh_url) = extract_meta_refresh(&body, &final_url) {
                 // println!("🔄 Meta refresh trouvé : {}", meta_refresh_url);
-                extract_and_register_infographic(meta_refresh_url.as_str(), &*alias).await;
+                extract_and_register_infographic(meta_refresh_url.as_str(), &*alias, jeu).await;
                 counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 return Ok(());
             }
