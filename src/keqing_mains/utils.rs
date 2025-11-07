@@ -1,23 +1,33 @@
 // Utility functions for Keqing Mains application
 
-fn register_infographics(infographic: &Infographic, alias: &str) {
-    // Ouvre le fichier en mode append (ajoute à la fin) ou crée s'il n'existe pas
-    let mut file = OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(format!("infographics_{}.txt", alias))
-        .expect("Impossible d'ouvrir/créer le fichier infographics.txt");
+pub async fn register_infographics(infographic: &Infographic, alias: &str) -> Result<(), Box<dyn Error>> {
+    let client = Client::new();
+    let api_token = env::var("API_TOKEN")?;
 
-    // Écrit les informations séparées par des espaces et retourne à la ligne
-    writeln!(
-        file,
-        "{} {} {}",
-        infographic.url, infographic.build, infographic.character
-    )
-        .expect("Impossible d'écrire dans le fichier");
+    let payload = InfographicPayload {
+        url: &infographic.url,
+        build: &infographic.build,
+        formatedValue: &infographic.character,
+        source: &infographic.source,
+    };
+
+    let api_url = "https://citlapi.antredesloutres.fr/api/infographics/genshin/new";
+
+    let resp = client
+        .post(api_url)
+        .bearer_auth(api_token)
+        .json(&payload)
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        eprintln!("❌ Erreur API {} : {:?}", resp.status(), resp.text().await?);
+    }
+
+    Ok(())
 }
 
-fn extract_and_register_infographic(combined_url: &str, alias: &str) {
+pub async fn extract_and_register_infographic(combined_url: &str, alias: &str) {
     // On suppose que la chaîne est du type "page_url'image_url'"
     let parts: Vec<&str> = combined_url.split('\'').collect();
 
@@ -35,7 +45,7 @@ fn extract_and_register_infographic(combined_url: &str, alias: &str) {
             source: alias.to_string(),       
         };
 
-        register_infographics(&infographic, alias)
+        register_infographics(&infographic, alias).await.expect("TODO: panic message");
 
     } else {
         println!("⚠️ Impossible de séparer les URLs : {}", combined_url);
@@ -74,4 +84,27 @@ fn extract_character_build(url: &str) -> String {
     } else {
         "classique".to_string()
     }
+}
+
+// Petit helper pour détecter les <meta http-equiv="refresh" content="0;url=...">
+fn extract_meta_refresh(body: &str, base_url: &Url) -> Option<Url> {
+    // Cherche "http-equiv" sans tenir compte de la casse
+    if let Some(idx) = body.to_lowercase().find("http-equiv=\"refresh\"") {
+        // On utilise la slice originale, pas la lowercase
+        let slice = &body[idx..];
+        if let Some(content_pos) = slice.to_lowercase().find("content=\"") {
+            let sub = &slice[content_pos + 9..];
+            if let Some(url_start) = sub.to_lowercase().find("url=") {
+                let sub_url = &sub[url_start + 4..];
+                // L’URL va jusqu’au prochain guillemet
+                let end = sub_url.find('"').unwrap_or(sub_url.len());
+                let url_candidate = &sub_url[..end].trim();
+
+                if let Ok(u) = base_url.join(url_candidate) {
+                    return Some(u);
+                }
+            }
+        }
+    }
+    None
 }
