@@ -3,10 +3,10 @@ use reqwest::{Client, header::CONTENT_TYPE, Url};
 use std::error::Error;
 use scraper::{Html, Selector};
 
-async fn scrap_redirect_urls() -> Result<Vec<String>, Box<dyn Error>> {
+async fn scrap_redirect_urls(url: &str) -> Result<Vec<String>, Box<dyn Error>> {
     let start = std::time::Instant::now();
     // 🔹 URL de la page principale contenant toutes les infographies
-    let base_url = "https://keqingmains.com/infographics/";
+    let base_url = url;
 
     // 🔹 Création du client HTTP
     let client = Client::builder()
@@ -47,7 +47,7 @@ async fn scrap_redirect_urls() -> Result<Vec<String>, Box<dyn Error>> {
 
 pub async fn scrape_infographics_kqm(info: ScrappingInfos) -> Result<(), Box<dyn Error>> {
     let start = Instant::now();
-    let urls = scrap_redirect_urls();
+    let urls = scrap_redirect_urls(info.url.as_str());
 
     let client = Client::builder()
         .user_agent("Mozilla/5.0 (compatible; FastScraper/1.0; +https://example.com)")
@@ -70,7 +70,6 @@ pub async fn scrape_infographics_kqm(info: ScrappingInfos) -> Result<(), Box<dyn
             };
 
             let final_url = resp.url().clone();
-            let status = resp.status();
 
             let body = match resp.text().await {
                 Ok(t) => t,
@@ -80,7 +79,7 @@ pub async fn scrape_infographics_kqm(info: ScrappingInfos) -> Result<(), Box<dyn
                 }
             };
 
-            if let Some(meta_refresh_url) = extract_meta_refresh(&body, &final_url) {
+            if let Some(_meta_refresh_url) = extract_meta_refresh(&body, &final_url) {
                 counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 return Ok(());
             }
@@ -100,8 +99,7 @@ pub async fn scrape_infographics_kqm(info: ScrappingInfos) -> Result<(), Box<dyn
         })
         .await;
 
-    println!("Traitement terminé en {:.2?}", start.elapsed());
-    println!("Nombre d'infographies trouvées : {}", meta_refresh_count.load(std::sync::atomic::Ordering::Relaxed));
+    println!("✅ Traitement terminé en {:.2?}, Nombre d'infographies trouvées : {}", start.elapsed(), meta_refresh_count.load(std::sync::atomic::Ordering::Relaxed));
 
     Ok(())
 }
