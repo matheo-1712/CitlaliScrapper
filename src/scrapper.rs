@@ -10,7 +10,7 @@ async fn scrap_redirect_urls(url: &str) -> Result<Vec<String>, Box<dyn Error>> {
 
     // 🔹 Création du client HTTP
     let client = Client::builder()
-        .user_agent("Mozilla/5.0 (compatible; KQMFetcher/1.0; +https://example.com)")
+        .user_agent("Mozilla/5.0 (compatible; Citlali/3.0; +https://citlapi.antredesloutres.fr/)")
         .build()?;
 
     // 🔹 Télécharge la page HTML
@@ -41,6 +41,7 @@ async fn scrap_redirect_urls(url: &str) -> Result<Vec<String>, Box<dyn Error>> {
         }
     }
 
+
     println!("✅ {} URLs récupérées en {:.2?}", infographic_urls.len(), start.elapsed());
     Ok(infographic_urls)
 }
@@ -50,7 +51,7 @@ pub async fn scrape_infographics_kqm(info: ScrappingInfos) -> Result<(), Box<dyn
     let urls = scrap_redirect_urls(info.url.as_str());
 
     let client = Client::builder()
-        .user_agent("Mozilla/5.0 (compatible; FastScraper/1.0; +https://example.com)")
+        .user_agent("Mozilla/5.0 (compatible; Citlali/3.0; +https://citlapi.antredesloutres.fr/)")
         .build()?;
 
     let concurrency = 10;
