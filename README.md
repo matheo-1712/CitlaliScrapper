@@ -1,0 +1,1 @@
+Projet de scrapping web en Rust à des fins de tests et d'apprentissage.

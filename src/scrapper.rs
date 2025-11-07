@@ -1,117 +1,130 @@
 use futures::stream::{self, StreamExt};
-use reqwest::Client;
+use reqwest::{Client, header::CONTENT_TYPE, Url};
+use std::error::Error;
 use scraper::{Html, Selector};
 
-pub async fn scrape_infographics(
-    info: ScrappingInfos,
-) -> Result<Vec<Option<(String, Vec<String>)>>, Box<dyn std::error::Error>> {
+async fn scrap_redirect_urls() -> Result<Vec<String>, Box<dyn Error>> {
     let start = std::time::Instant::now();
+    // 🔹 URL de la page principale contenant toutes les infographies
+    let base_url = "https://keqingmains.com/infographics/";
 
+    // 🔹 Création du client HTTP
     let client = Client::builder()
-        .user_agent("Mozilla/5.0 (compatible; Citlali/1.0; +https://citlapi.antredesloutres.fr)")
+        .user_agent("Mozilla/5.0 (compatible; KQMFetcher/1.0; +https://example.com)")
         .build()?;
 
-    let concurrency = 10;
+    // 🔹 Télécharge la page HTML
+    let resp = client.get(base_url).send().await?;
+    let body = resp.text().await?;
+    let document = Html::parse_document(&body);
 
-    let results = stream::iter(info.urls.clone())
-        .map(|url| {
-            let client = &client;
-            let selectors = info.selector_str.clone();
+    // 🔹 Sélecteurs pour extraire les cartes et leurs liens
+    let card_selector = Selector::parse("div.card.character-card").unwrap();
+    let link_selector = Selector::parse("a").unwrap();
 
-            async move {
-                match client.get(&url).send().await {
-                    Ok(resp) => match resp.text().await {
-                        Ok(text) => {
-                            let document = Html::parse_document(&text);
-                            let full_html = document.root_element().html();
+    let mut infographic_urls = Vec::new();
 
-                            // 👉 Essaie chaque couple de sélecteurs jusqu’à trouver un match
-                            for pair in selectors.iter() {
-                                let start_selector = match Selector::parse(&pair.start_selector_str) {
-                                    Ok(s) => s,
-                                    Err(_) => {
-                                        eprintln!(
-                                            "⚠️ Erreur de parsing du sélecteur start: {}",
-                                            pair.start_selector_str
-                                        );
-                                        continue;
-                                    }
-                                };
-                                let end_selector = match Selector::parse(&pair.end_selector_str) {
-                                    Ok(s) => s,
-                                    Err(_) => {
-                                        eprintln!(
-                                            "⚠️ Erreur de parsing du sélecteur end: {}",
-                                            pair.end_selector_str
-                                        );
-                                        continue;
-                                    }
-                                };
-
-                                let start_elem = document.select(&start_selector).next();
-                                let end_elem = document.select(&end_selector).next();
-
-                                if let (Some(start_elem), Some(end_elem)) = (start_elem, end_elem) {
-                                    if let (Some(start_idx), Some(end_idx)) = (
-                                        full_html.find(&start_elem.html()),
-                                        full_html.find(&end_elem.html()),
-                                    ) {
-                                        if start_idx < end_idx {
-                                            let section = &full_html[start_idx..end_idx];
-                                            let url_selector = Selector::parse("img").unwrap();
-                                            let fragment = Html::parse_fragment(section);
-                                            let images: Vec<String> = fragment
-                                                .select(&url_selector)
-                                                .filter_map(|e| e.value().attr("src"))
-                                                .map(|src| src.to_string())
-                                                .collect();
-
-                                            if !images.is_empty() {
-                                                return Some((url.to_string(), images));
-                                            }
-                                        } else {
-                                            eprintln!(
-                                                "⚠️ Indices incohérents ({} >= {}) pour {} avec sélecteur {:?}",
-                                                start_idx, end_idx, url, pair
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Si aucun des couples n’a fonctionné :
-                            eprintln!("⚠️ Aucun sélecteur valide trouvé pour {}", url);
-                            None
+    // 🔹 Parcours des cartes de personnages
+    for card in document.select(&card_selector) {
+        // Vérifie que la carte correspond à une infographie
+        if let Some(category) = card.value().attr("data-category") {
+            if category.contains("Infographic") {
+                for a_tag in card.select(&link_selector) {
+                    if let Some(href) = a_tag.value().attr("href") {
+                        // On ne garde que les liens du type /i/
+                        if href.contains("/i/") && !infographic_urls.contains(&href.to_string()) {
+                            infographic_urls.push(href.to_string());
                         }
-                        Err(e) => {
-                            eprintln!("⚠️ Erreur lecture corps {} : {}", url, e);
-                            None
-                        }
-                    },
-                    Err(e) => {
-                        eprintln!("⚠️ Erreur requête {} : {}", url, e);
-                        None
                     }
                 }
             }
+        }
+    }
+
+    println!("✅ {} URLs récupérées en {:.2?}", infographic_urls.len(), start.elapsed());
+    Ok(infographic_urls)
+}
+
+pub async fn scrape_infographics_kqm(info: ScrappingInfos) -> Result<(), Box<dyn Error>> {
+    let start = Instant::now();
+    let urls = scrap_redirect_urls();
+
+    let client = Client::builder()
+        .user_agent("Mozilla/5.0 (compatible; FastScraper/1.0; +https://example.com)")
+        .build()?;
+
+    let concurrency = 10;
+    let meta_refresh_count = std::sync::atomic::AtomicUsize::new(0);
+
+    let fetches = stream::iter(urls.await?.into_iter().map(|url| {
+        let client = client.clone();
+        let counter = &meta_refresh_count;
+
+        async move {
+            let resp = match client.get(&url).send().await {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("⚠️  Erreur requête {} : {}", url, e);
+                    return Ok(());
+                }
+            };
+
+            let final_url = resp.url().clone();
+            let status = resp.status();
+
+            let body = match resp.text().await {
+                Ok(t) => t,
+                Err(e) => {
+                    eprintln!("⚠️  Erreur lecture corps {} : {}", url, e);
+                    return Ok(());
+                }
+            };
+
+            if let Some(meta_refresh_url) = extract_meta_refresh(&body, &final_url) {
+                counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                return Ok(());
+            }
+
+            println!("⚠️  Pas de meta refresh trouvé sur {}", url);
+
+            Ok::<(), Box<dyn Error>>(())
+        }
+    }))
+        .buffer_unordered(concurrency);
+
+    fetches
+        .for_each(|res| async {
+            if let Err(e) = res {
+                eprintln!("❌ Erreur : {}", e);
+            }
         })
-        .buffer_unordered(concurrency)
-        .collect::<Vec<_>>()
         .await;
 
-    // Compte total d’images extraites
-    let infographics_count: usize = results
-        .iter()
-        .filter_map(|r| r.as_ref())
-        .map(|(_, imgs)| imgs.len())
-        .sum();
+    println!("Traitement terminé en {:.2?}", start.elapsed());
+    println!("Nombre d'infographies trouvées : {}", meta_refresh_count.load(std::sync::atomic::Ordering::Relaxed));
 
-    println!(
-        "{} infographies récupérées pour {} en {:.2?} ⏱️",
-        infographics_count,
-        info.alias,
-        start.elapsed()
-    );
-
-    Ok(results)
+    Ok(())
 }
+// Petit helper pour détecter les <meta http-equiv="refresh" content="0;url=...">
+fn extract_meta_refresh(body: &str, base_url: &Url) -> Option<Url> {
+    // Cherche "http-equiv" sans tenir compte de la casse
+    if let Some(idx) = body.to_lowercase().find("http-equiv=\"refresh\"") {
+        // On utilise la slice originale, pas la lowercase
+        let slice = &body[idx..];
+        if let Some(content_pos) = slice.to_lowercase().find("content=\"") {
+            let sub = &slice[content_pos + 9..];
+            if let Some(url_start) = sub.to_lowercase().find("url=") {
+                let sub_url = &sub[url_start + 4..];
+                // L’URL va jusqu’au prochain guillemet
+                let end = sub_url.find('"').unwrap_or(sub_url.len());
+                let url_candidate = &sub_url[..end].trim();
+
+                if let Ok(u) = base_url.join(url_candidate) {
+                    return Some(u);
+                }
+            }
+        }
+    }
+    None
+}
+
