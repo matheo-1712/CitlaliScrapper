@@ -1,31 +1,5 @@
 // Utility functions for Keqing Mains application
-
-pub async fn register_infographics(infographic: &Infographic, alias: &str) -> Result<(), Box<dyn Error>> {
-    let client = Client::new();
-    let api_token = env::var("API_TOKEN")?;
-
-    let payload = InfographicPayload {
-        url: &infographic.url,
-        build: &infographic.build,
-        formatedValue: &infographic.character,
-        source: &infographic.source,
-    };
-
-    let api_url = "https://citlapi.antredesloutres.fr/api/infographics/genshin/new";
-
-    let resp = client
-        .post(api_url)
-        .bearer_auth(api_token)
-        .json(&payload)
-        .send()
-        .await?;
-
-    if !resp.status().is_success() {
-        eprintln!("❌ Erreur API {} : {:?}", resp.status(), resp.text().await?);
-    }
-
-    Ok(())
-}
+include!("./register.rs");
 
 pub async fn extract_and_register_infographic(combined_url: &str, alias: &str) {
     // On suppose que la chaîne est du type "page_url'image_url'"
@@ -45,7 +19,7 @@ pub async fn extract_and_register_infographic(combined_url: &str, alias: &str) {
             source: alias.to_string(),       
         };
 
-        register_infographics(&infographic, alias).await.expect("TODO: panic message");
+        register_infographics(&infographic).await.expect("TODO: panic message");
 
     } else {
         println!("⚠️ Impossible de séparer les URLs : {}", combined_url);

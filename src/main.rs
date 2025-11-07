@@ -1,5 +1,4 @@
 use std::env;
-use std::io::Write;
 use dotenv::dotenv;
 
 include!("./characters/genshin/get_genshin_characters.rs");
