@@ -1,3 +1,5 @@
+use reqwest::Url;
+
 // Utility functions for Keqing Mains application
 pub async fn extract_and_register_infographic(combined_url: &str, alias: &str, jeu: &str) {
     // On suppose que la chaîne est du type "page_url'image_url'"

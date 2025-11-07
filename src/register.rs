@@ -1,7 +1,10 @@
-use std::fmt::format;
+use std::env;
 
 // Envoie des infographies vers l'API
-pub async fn register_infographics(infographic: &Infographic, jeu: Box<str>) -> Result<(), Box<dyn Error>> {
+pub async fn register_infographics(
+    infographic: &Infographic,
+    jeu: Box<str>,
+) -> Result<(), Box<dyn Error>> {
     let client = Client::new();
     let api_token = env::var("API_TOKEN")?;
 
@@ -12,7 +15,10 @@ pub async fn register_infographics(infographic: &Infographic, jeu: Box<str>) -> 
         source: &infographic.source,
     };
 
-    let api_url = format!("https://citlapi.antredesloutres.fr/api/infographics/{}/new", jeu);
+    let api_url = format!(
+        "https://citlapi.antredesloutres.fr/api/infographics/{}/new",
+        jeu
+    );
 
     let resp = client
         .post(api_url)
