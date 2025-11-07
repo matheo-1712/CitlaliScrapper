@@ -1,11 +1,11 @@
 // Utility functions for Keqing Mains application
 
-fn register_infographics(infographic: &Infographic) {
+fn register_infographics(infographic: &Infographic, alias: &str) {
     // Ouvre le fichier en mode append (ajoute à la fin) ou crée s'il n'existe pas
     let mut file = OpenOptions::new()
         .append(true)
         .create(true)
-        .open("infographics.txt")
+        .open(format!("infographics_{}.txt", alias))
         .expect("Impossible d'ouvrir/créer le fichier infographics.txt");
 
     // Écrit les informations séparées par des espaces et retourne à la ligne
@@ -17,7 +17,7 @@ fn register_infographics(infographic: &Infographic) {
         .expect("Impossible d'écrire dans le fichier");
 }
 
-fn extract_and_register_infographic(combined_url: &str) {
+fn extract_and_register_infographic(combined_url: &str, alias: &str) {
     // On suppose que la chaîne est du type "page_url'image_url'"
     let parts: Vec<&str> = combined_url.split('\'').collect();
 
@@ -32,9 +32,10 @@ fn extract_and_register_infographic(combined_url: &str) {
             url: image_url.to_string(),
             build: character_build,
             character: character_name,
+            source: alias.to_string(),       
         };
 
-        register_infographics(&infographic)
+        register_infographics(&infographic, alias)
 
     } else {
         println!("⚠️ Impossible de séparer les URLs : {}", combined_url);
