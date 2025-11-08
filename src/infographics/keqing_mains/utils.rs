@@ -1,6 +1,6 @@
-// Utility functions for Keqing Mains application
-include!("./register.rs");
+use reqwest::Url;
 
+// Utility functions for Keqing Mains application
 pub async fn extract_and_register_infographic(combined_url: &str, alias: &str, jeu: &str) {
     // On suppose que la chaîne est du type "page_url'image_url'"
     let parts: Vec<&str> = combined_url.split('\'').collect();
@@ -16,11 +16,12 @@ pub async fn extract_and_register_infographic(combined_url: &str, alias: &str, j
             url: image_url.to_string(),
             build: character_build,
             character: character_name,
-            source: alias.to_string(),       
+            source: alias.to_string(),
         };
 
-        register_infographics(&infographic, Box::from(jeu)).await.expect("TODO: panic message");
-
+        register_infographics(&infographic, Box::from(jeu))
+            .await
+            .expect("TODO: panic message");
     } else {
         println!("⚠️ Impossible de séparer les URLs : {}", combined_url);
     }

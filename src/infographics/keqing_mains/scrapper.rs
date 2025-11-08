@@ -1,10 +1,7 @@
 use futures::stream::{self, StreamExt};
-use reqwest::{Client, header::CONTENT_TYPE, Url};
-use std::error::Error;
-use std::fs::OpenOptions;
+use reqwest::Client;
 use scraper::{Html, Selector};
-
-include!("utils.rs");
+use std::error::Error;
 
 async fn scrap_redirect_urls(url: &str) -> Result<Vec<String>, Box<dyn Error>> {
     let start = std::time::Instant::now();
@@ -43,7 +40,11 @@ async fn scrap_redirect_urls(url: &str) -> Result<Vec<String>, Box<dyn Error>> {
             }
         }
     }
-    println!("✅ {} URLs récupérées en {:.2?}", infographic_urls.len(), start.elapsed());
+    println!(
+        "✅ {} URLs récupérées en {:.2?}",
+        infographic_urls.len(),
+        start.elapsed()
+    );
     Ok(infographic_urls)
 }
 
@@ -95,7 +96,7 @@ pub async fn scrape_infographics_kqm(info: ScrappingInfos) -> Result<(), Box<dyn
             Ok::<(), Box<dyn Error>>(())
         }
     }))
-        .buffer_unordered(concurrency);
+    .buffer_unordered(concurrency);
 
     fetches
         .for_each(|res| async {
@@ -104,9 +105,11 @@ pub async fn scrape_infographics_kqm(info: ScrappingInfos) -> Result<(), Box<dyn
             }
         })
         .await;
-    println!("✅ Traitement terminé en {:.2?}, Nombre d'infographies trouvées : {}", start.elapsed(), meta_refresh_count.load(std::sync::atomic::Ordering::Relaxed));
+    println!(
+        "✅ Traitement terminé en {:.2?}, Nombre d'infographies trouvées : {}",
+        start.elapsed(),
+        meta_refresh_count.load(std::sync::atomic::Ordering::Relaxed)
+    );
 
     Ok(())
 }
-
-
