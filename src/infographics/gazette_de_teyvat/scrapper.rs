@@ -7,13 +7,15 @@ pub struct CharacterTempo {
 }
 pub async fn scrape_infographics(
     character_urls: Vec<String>,
+    scrapping_infos: ScrappingInfos,
 ) -> Result<Vec<Infographic>, Box<dyn Error>> {
     let client = Client::builder()
         .user_agent("Mozilla/5.0 (compatible; Citlali/3.0; +https://citlapi.antredesloutres.fr/)")
         .build()?;
 
     let concurrency = 10;
-
+    let alias = &scrapping_infos.alias;
+    let jeu: &str = &scrapping_infos.jeu.as_str();
     let infographics: Vec<Infographic> = stream::iter(character_urls)
         .map(|url| {
             let client = client.clone();
@@ -59,7 +61,6 @@ pub async fn scrape_infographics(
                     .collect();
 
                 let character_name = extract_character_name_gazette(&url);
-
                 let mut infos = Vec::new();
                 for (i, img) in image_urls.iter().enumerate() {
                     let title = titles
@@ -67,22 +68,21 @@ pub async fn scrape_infographics(
                         .cloned()
                         .unwrap_or_else(|| "Build inconnu".to_string());
 
+                    // On définit l'infographie
                     let infographic = Infographic {
                         url: img.to_string(),
                         build: title,
                         character: format_character_name(&*character_name.clone()),
-                        source: "La Gazette de Teyvat".to_string(),
+                        source: alias.to_string(),
                     };
 
                     // Envoie chaque infographie immédiatement
-                    if let Err(e) = register_infographics(&infographic, Box::from("genshin")).await
-                    {
+                    if let Err(e) = register_infographics(&infographic, Box::from(jeu)).await {
                         eprintln!("❌ Erreur API pour {} : {}", character_name, e);
                     }
 
                     infos.push(infographic);
                 }
-
                 infos
             }
         })
@@ -94,16 +94,17 @@ pub async fn scrape_infographics(
     Ok(infographics)
 }
 
-pub async fn scrape_all_characters() -> Result<(), Box<dyn Error>> {
+pub async fn scrape_all_characters(scrapping_infos: ScrappingInfos) -> Result<(), Box<dyn Error>> {
     let client = Client::builder()
         .user_agent("Mozilla/5.0 (compatible; Citlali/3.0; +https://citlapi.antredesloutres.fr/)")
         .build()?;
 
     let start_total = Instant::now();
-    let url = "https://lagazettedeteyvat.fr/personnages/";
+    let url = scrapping_infos.url.clone();
     let html = client.get(url).send().await?.text().await?;
     let document = Html::parse_document(&html);
 
+    // Selecteurs pour extraire les cartes et leurs liens
     let selector_box = Selector::parse("a.entitybox").unwrap();
     let selector_name = Selector::parse("h5").unwrap();
 
@@ -134,7 +135,7 @@ pub async fn scrape_all_characters() -> Result<(), Box<dyn Error>> {
     let character_urls: Vec<String> = characters.iter().map(|c| c.url.clone()).collect();
 
     // Scraping parallèle avec limite de 10
-    let total_infographics = scrape_infographics(character_urls).await?;
+    let total_infographics = scrape_infographics(character_urls, scrapping_infos).await?;
 
     println!(
         "✅ Traitement terminé en {:?}, Nombre d'infographies trouvées : {}",
