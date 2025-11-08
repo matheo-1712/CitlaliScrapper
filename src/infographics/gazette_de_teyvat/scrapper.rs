@@ -5,49 +5,77 @@ pub struct CharacterTempo {
     pub name: String,
     pub url: String,
 }
-pub async fn scrape_infographics(character_url: &str) -> Result<Vec<Infographic>, Box<dyn Error>> {
+pub async fn scrape_infographics(
+    character_urls: Vec<String>,
+) -> Result<Vec<Infographic>, Box<dyn Error>> {
     let client = Client::builder()
         .user_agent("Mozilla/5.0 (compatible; Citlali/3.0; +https://citlapi.antredesloutres.fr/)")
         .build()?;
 
-    let html = client.get(character_url).send().await?.text().await?;
-    let document = Html::parse_document(&html);
+    let concurrency = 10;
 
-    let selector_title = Selector::parse(".elementor-shortcode h3").unwrap();
-    let selector_image = Selector::parse(".elementor-shortcode a[href$='.webp']").unwrap();
+    let infographics: Vec<Infographic> = stream::iter(character_urls)
+        .map(|url| {
+            let client = client.clone();
+            async move {
+                let html = match client.get(&url).send().await {
+                    Ok(resp) => resp.text().await.unwrap_or_default(),
+                    Err(e) => {
+                        eprintln!("❌ Erreur téléchargement {} : {}", url, e);
+                        return Vec::new();
+                    }
+                };
+                let document = Html::parse_document(&html);
 
-    let mut infographics: Vec<Infographic> = Vec::new();
+                let selector_title = Selector::parse(".elementor-shortcode h3").unwrap();
+                let selector_image =
+                    Selector::parse(".elementor-shortcode a[href$='.webp']").unwrap();
 
-    let titles: Vec<String> = document
-        .select(&selector_title)
-        .map(|el| el.text().collect::<Vec<_>>().join("").trim().to_string())
-        .collect();
+                let titles: Vec<String> = document
+                    .select(&selector_title)
+                    .map(|el| el.text().collect::<Vec<_>>().join("").trim().to_string())
+                    .collect();
 
-    let image_urls: Vec<String> = document
-        .select(&selector_image)
-        .filter_map(|el| el.value().attr("href"))
-        .map(|s| s.to_string())
-        .take(1)
-        .collect();
+                let image_urls: Vec<String> = document
+                    .select(&selector_image)
+                    .filter_map(|el| el.value().attr("href"))
+                    .map(|s| s.to_string())
+                    .take(2)
+                    .collect();
 
-    for (i, img) in image_urls.iter().enumerate() {
-        let title = titles
-            .get(i)
-            .cloned()
-            .unwrap_or_else(|| "Build inconnu".to_string());
+                let character_name = extract_character_name_gazette(&url);
 
-        let infographic = Infographic {
-            url: img.to_string(),
-            build: title,
-            character: extract_character_name_gazette(character_url),
-            source: "La Gazette de Teyvat".to_string(),
-        };
+                let mut infos = Vec::new();
+                for (i, img) in image_urls.iter().enumerate() {
+                    let title = titles
+                        .get(i)
+                        .cloned()
+                        .unwrap_or_else(|| "Build inconnu".to_string());
 
-        // Enregistre chaque infographie directement
-        register_infographics(&infographic, Box::from("genshin")).await?;
+                    let infographic = Infographic {
+                        url: img.to_string(),
+                        build: title,
+                        character: character_name.clone(),
+                        source: "La Gazette de Teyvat".to_string(),
+                    };
 
-        infographics.push(infographic);
-    }
+                    // Envoie chaque infographie immédiatement
+                    if let Err(e) = register_infographics(&infographic, Box::from("genshin")).await
+                    {
+                        eprintln!("❌ Erreur API pour {} : {}", character_name, e);
+                    }
+
+                    infos.push(infographic);
+                }
+
+                infos
+            }
+        })
+        .buffer_unordered(concurrency)
+        .flat_map(|vec_inf| stream::iter(vec_inf))
+        .collect()
+        .await;
+
     Ok(infographics)
 }
 
@@ -88,25 +116,15 @@ pub async fn scrape_all_characters() -> Result<(), Box<dyn Error>> {
         start_total.elapsed()
     );
 
-    let concurrency = 10;
-    let total_infographics = stream::iter(characters)
-        .map(|character| async move {
-            match scrape_infographics(&character.url).await {
-                Ok(infos) => infos.len(),
-                Err(e) => {
-                    eprintln!("❌ Erreur sur {} : {}", character.name, e);
-                    0
-                }
-            }
-        })
-        .buffer_unordered(concurrency)
-        .fold(0, |acc, x| async move { acc + x })
-        .await;
+    let character_urls: Vec<String> = characters.iter().map(|c| c.url.clone()).collect();
+
+    // Scraping parallèle avec limite de 10
+    let total_infographics = scrape_infographics(character_urls).await?;
 
     println!(
-        "✅ Traitement terminé en {:?}, Nombre d'infographies trouvées : {}",
-        start_total.elapsed(),
-        total_infographics
+        "✅ Traitement terminé : {} infographie(s) enregistrée(s) en {:?}",
+        total_infographics.len(),
+        start_total.elapsed()
     );
 
     Ok(())
