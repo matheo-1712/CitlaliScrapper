@@ -36,11 +36,26 @@ pub async fn scrape_infographics(
                     .map(|el| el.text().collect::<Vec<_>>().join("").trim().to_string())
                     .collect();
 
+                // Filtrer les images : http(s) et contenant "build" dans src ou alt
                 let image_urls: Vec<String> = document
                     .select(&selector_image)
-                    .filter_map(|el| el.value().attr("href"))
-                    .map(|s| s.to_string())
-                    .take(2)
+                    .filter_map(|el| {
+                        let href = el.value().attr("href").unwrap_or_default();
+                        let alt = el
+                            .select(&Selector::parse("img").unwrap())
+                            .next()
+                            .and_then(|img| img.value().attr("alt"))
+                            .unwrap_or_default();
+
+                        // Garde seulement les URLs contenant "build" dans le href ou alt
+                        if href.to_lowercase().contains("build")
+                            || alt.to_lowercase().contains("build")
+                        {
+                            Some(href.to_string())
+                        } else {
+                            None
+                        }
+                    })
                     .collect();
 
                 let character_name = extract_character_name_gazette(&url);
@@ -55,7 +70,7 @@ pub async fn scrape_infographics(
                     let infographic = Infographic {
                         url: img.to_string(),
                         build: title,
-                        character: character_name.clone(),
+                        character: format_character_name(&*character_name.clone()),
                         source: "La Gazette de Teyvat".to_string(),
                     };
 
@@ -122,9 +137,9 @@ pub async fn scrape_all_characters() -> Result<(), Box<dyn Error>> {
     let total_infographics = scrape_infographics(character_urls).await?;
 
     println!(
-        "✅ Traitement terminé : {} infographie(s) enregistrée(s) en {:?}",
-        total_infographics.len(),
-        start_total.elapsed()
+        "✅ Traitement terminé en {:?}, Nombre d'infographies trouvées : {}",
+        start_total.elapsed(),
+        total_infographics.len()
     );
 
     Ok(())
