@@ -5,6 +5,7 @@ use std::error::Error;
 
 async fn scrap_redirect_urls(url: &str) -> Result<Vec<String>, Box<dyn Error>> {
     let start = std::time::Instant::now();
+
     // URL de la page principale contenant toutes les infographies
     let base_url = url;
 
@@ -22,6 +23,7 @@ async fn scrap_redirect_urls(url: &str) -> Result<Vec<String>, Box<dyn Error>> {
     let card_selector = Selector::parse("div.card.character-card").unwrap();
     let link_selector = Selector::parse("a").unwrap();
 
+    // Liste des URLs des infographies
     let mut infographic_urls = Vec::new();
 
     // Parcours des cartes de personnages
