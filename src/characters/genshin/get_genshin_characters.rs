@@ -1,12 +1,5 @@
 use std::time::Instant;
 use serde::Deserialize;
-
-#[derive(Deserialize, Debug)]
-struct Character {
-    id: u32,
-    formatedValue:String,
-}
-
 #[derive(Deserialize, Debug)]
 struct ApiResponse {
     data: Vec<Character>,
