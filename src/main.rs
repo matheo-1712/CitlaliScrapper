@@ -4,6 +4,7 @@ include!("./characters/genshin/get_genshin_characters.rs");
 include!("./struct_file.rs");
 include!("./infographics/keqing_mains/main_kgm.rs");
 include!("./infographics/gazette_de_teyvat/main_gazette.rs");
+include!("./uid_infos/player_icon_update.rs");
 include!("register.rs");
 include!("env.rs");
 
@@ -15,6 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // On vérifie les variables d'environnement
     check_env()?;
 
+    player_icon_update().await;
     main_keqing_mains().await;
     main_gazette().await;
 
