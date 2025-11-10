@@ -5,11 +5,15 @@ include!("./struct_file.rs");
 include!("./infographics/keqing_mains/main_kgm.rs");
 include!("./infographics/gazette_de_teyvat/main_gazette.rs");
 include!("register.rs");
+include!("env.rs");
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Charge le .env
     dotenv().ok();
+
+    // On vérifie les variables d'environnement
+    check_env()?;
 
     main_keqing_mains().await;
     main_gazette().await;

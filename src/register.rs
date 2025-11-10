@@ -16,8 +16,8 @@ pub async fn register_infographics(
     };
 
     let api_url = format!(
-        "https://citlapi.antredesloutres.fr/api/infographics/{}/new",
-        jeu
+        "{}/api/infographics/{}/new",
+        env::var("API_URL")?, jeu
     );
 
     let resp = client
